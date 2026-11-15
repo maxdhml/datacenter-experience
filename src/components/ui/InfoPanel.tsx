@@ -1,7 +1,20 @@
 import React, { useEffect } from 'react';
 import { useGameStore } from '../../stores/gameStore';
 import { getEquipmentById, EquipmentInfo } from '../../data/educationalContent';
-import { UpsSchematic, CoolingSchematic, NetworkSchematic, SecuritySchematic } from './InteractiveSchematics';
+import {
+  BuildingSchematic,
+  AirlockSchematic,
+  ServerPowerSchematic,
+  SwitchRouterSchematic,
+  ColdAisleSchematic,
+  ChilledWaterSchematic,
+  UpsSchematic,
+  GeneratorSchematic,
+  FiberRedundancySchematic,
+  FirewallSchematic,
+  NocControlSchematic,
+  FireSuppressionSchematic,
+} from './InteractiveSchematics';
 import { soundManager } from '../../utils/audio';
 import '../../styles/InfoPanel.css';
 
@@ -62,32 +75,39 @@ export const InfoPanel: React.FC = () => {
     keyMetric: '99,99 % de disponibilité',
   };
 
-  // Determine schematic based on category or ID
-  const isElectrical =
-    equipment.category.includes('Électrique') ||
-    equipment.category.includes('Énergie') ||
-    equipment.category.includes('Secours') ||
-    ['ups', 'batteries', 'generator', 'pdu', 'transformer', 'ats'].includes(equipment.id);
+  // 12 unique, non-repeating schematics (1 dedicated schematic per equipment)
+  const renderSchematic = () => {
+    switch (equipment.id) {
+      case 'datacenter-building':
+        return <BuildingSchematic />;
+      case 'access-control':
+        return <AirlockSchematic />;
+      case 'server-rack':
+        return <ServerPowerSchematic />;
+      case 'network-switch':
+        return <SwitchRouterSchematic />;
+      case 'cold-aisle':
+        return <ColdAisleSchematic />;
+      case 'crac-unit':
+        return <ChilledWaterSchematic />;
+      case 'ups':
+        return <UpsSchematic />;
+      case 'generator':
+        return <GeneratorSchematic />;
+      case 'bgp-router':
+        return <FiberRedundancySchematic />;
+      case 'firewall':
+        return <FirewallSchematic />;
+      case 'noc-monitor':
+        return <NocControlSchematic />;
+      case 'fire-suppression':
+        return <FireSuppressionSchematic />;
+      default:
+        return null;
+    }
+  };
 
-  const isCooling =
-    equipment.category.includes('Climatisation') ||
-    equipment.category.includes('Aéraulique') ||
-    equipment.category.includes('Froid') ||
-    equipment.category.includes('Air') ||
-    ['crac-unit', 'cold-aisle', 'hot-aisle', 'raised-floor', 'cooling-tower'].includes(equipment.id);
-
-  const isNetwork =
-    equipment.category.includes('Réseau') ||
-    equipment.category.includes('Transit') ||
-    equipment.category.includes('Connexion') ||
-    equipment.category.includes('Calcul') ||
-    equipment.category.includes('Cyber') ||
-    ['server-rack', 'network-switch', 'bgp-router', 'spine-switch', 'firewall', 'fiber-optic', 'fiber-backbone', 'patch-panel'].includes(equipment.id);
-
-  const isSecurity =
-    equipment.category.includes('Sécurité') ||
-    equipment.category.includes('Supervision') ||
-    ['datacenter-building', 'access-control', 'noc-monitor', 'siem-system', 'fire-suppression', 'cctv-camera', 'biometric-scanner'].includes(equipment.id);
+  const schematicComponent = renderSchematic();
 
   return (
     <div className="info-panel" onClick={(e) => e.stopPropagation()}>
@@ -112,14 +132,12 @@ export const InfoPanel: React.FC = () => {
       </div>
 
       <div className="info-panel__body">
-        {/* Interactive Schematic Animation */}
-        <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '12px', border: '1px solid rgba(14,165,233,0.25)' }}>
-          {isElectrical && <UpsSchematic />}
-          {isCooling && <CoolingSchematic />}
-          {isNetwork && <NetworkSchematic />}
-          {isSecurity && <SecuritySchematic />}
-          {!isElectrical && !isCooling && !isNetwork && !isSecurity && <UpsSchematic />}
-        </div>
+        {/* Interactive Schematic Animation (100% Unique per equipment, zero redundancy) */}
+        {schematicComponent && (
+          <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '12px', border: '1px solid rgba(14,165,233,0.25)' }}>
+            {schematicComponent}
+          </div>
+        )}
 
         {/* 15-Minute Oral Cheat Sheet (Essentiel sans détails superflus) */}
         <div className="info-panel__oral-box">
