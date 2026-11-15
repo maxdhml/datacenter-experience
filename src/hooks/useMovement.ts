@@ -1,0 +1,144 @@
+import { useRef } from 'react';
+import * as THREE from 'three';
+import { useKeyboard } from './useKeyboard.js';
+import { useGameStore } from '../stores/gameStore.js';
+import { Area, GameState } from '../types/index.js';
+
+// Compact corridor boundaries: -14 <= x <= 14, -22 <= z <= 108 (~130m total)
+const MIN_X = -14.2;
+const MAX_X = 14.2;
+const MIN_Z = -22.0;
+const MAX_Z = 108.0;
+
+const BASE_SPEED = 6.2; // units per second
+const SPRINT_SPEED = 10.5; // fast fluid run when holding Shift
+
+function isKey(keys: Map<string, boolean>, code: string): boolean {
+  return keys.get(code) === true;
+}
+
+export interface MovementResult {
+  moveForward: boolean;
+  moveBackward: boolean;
+  moveLeft: boolean;
+  moveRight: boolean;
+  velocity: THREE.Vector3;
+  isMoving: boolean;
+  isSprinting: boolean;
+}
+
+export function useMovement() {
+  const keysRef = useKeyboard();
+  const currentVelocity = useRef(new THREE.Vector3());
+  const targetVelocity = useRef(new THREE.Vector3());
+  const direction = useRef(new THREE.Vector3());
+
+  const currentArea = useGameStore((s) => s.currentArea);
+  const setArea = useGameStore((s) => s.setArea);
+  const gameState = useGameStore((s) => s.gameState);
+
+  function update(
+    delta: number,
+    currentPos: THREE.Vector3,
+    yaw: number,
+  ): THREE.Vector3 {
+    if (gameState !== GameState.PLAYING && gameState !== GameState.MISSION) {
+      currentVelocity.current.set(0, 0, 0);
+      return currentPos;
+    }
+
+    const keys = keysRef.current;
+
+    // Support ZQSD (French AZERTY) and WASD (QWERTY) + Arrow Keys
+    const forward =
+      isKey(keys, 'KeyW') || isKey(keys, 'KeyZ') || isKey(keys, 'ArrowUp');
+    const backward = isKey(keys, 'KeyS') || isKey(keys, 'ArrowDown');
+    const left =
+      isKey(keys, 'KeyA') || isKey(keys, 'KeyQ') || isKey(keys, 'ArrowLeft');
+    const right = isKey(keys, 'KeyD') || isKey(keys, 'ArrowRight');
+    const sprint = isKey(keys, 'ShiftLeft') || isKey(keys, 'ShiftRight');
+
+    const activeSpeed = sprint ? SPRINT_SPEED : BASE_SPEED;
+
+    direction.current.set(0, 0, 0);
+    if (forward) direction.current.z -= 1;
+    if (backward) direction.current.z += 1;
+    if (left) direction.current.x -= 1;
+    if (right) direction.current.x += 1;
+
+    const isMoving = direction.current.lengthSq() > 0;
+    if (isMoving) {
+      direction.current.normalize();
+    }
+
+    // Rotate input direction by yaw
+    const sin = Math.sin(yaw);
+    const cos = Math.cos(yaw);
+    const dx = direction.current.x * cos - direction.current.z * sin;
+    const dz = direction.current.x * sin + direction.current.z * cos;
+
+    targetVelocity.current.set(dx * activeSpeed, 0, dz * activeSpeed);
+
+    // Smooth physics damping (smooth acceleration & deceleration)
+    const lerpFactor = 1 - Math.exp(-14 * delta);
+    currentVelocity.current.lerp(targetVelocity.current, lerpFactor);
+
+    // Apply movement with boundary clamps
+    const newPos = currentPos.clone();
+    newPos.x = THREE.MathUtils.clamp(
+      currentPos.x + currentVelocity.current.x * delta,
+      MIN_X,
+      MAX_X
+    );
+    newPos.z = THREE.MathUtils.clamp(
+      currentPos.z + currentVelocity.current.z * delta,
+      MIN_Z,
+      MAX_Z
+    );
+
+    // Auto-detect area by compact Z coordinate
+    let detectedArea = Area.INTRODUCTION;
+    if (newPos.z >= 88) {
+      detectedArea = Area.SECURITY;
+    } else if (newPos.z >= 66) {
+      detectedArea = Area.NETWORK;
+    } else if (newPos.z >= 44) {
+      detectedArea = Area.ELECTRICAL;
+    } else if (newPos.z >= 22) {
+      detectedArea = Area.COOLING;
+    } else if (newPos.z >= 0) {
+      detectedArea = Area.SERVER_ROOM;
+    } else {
+      detectedArea = Area.INTRODUCTION;
+    }
+
+    if (detectedArea !== currentArea) {
+      setArea(detectedArea);
+    }
+
+    return newPos;
+  }
+
+  function getState(): MovementResult {
+    const keys = keysRef.current;
+    const forward =
+      isKey(keys, 'KeyW') || isKey(keys, 'KeyZ') || isKey(keys, 'ArrowUp');
+    const backward = isKey(keys, 'KeyS') || isKey(keys, 'ArrowDown');
+    const left =
+      isKey(keys, 'KeyA') || isKey(keys, 'KeyQ') || isKey(keys, 'ArrowLeft');
+    const right = isKey(keys, 'KeyD') || isKey(keys, 'ArrowRight');
+    const sprint = isKey(keys, 'ShiftLeft') || isKey(keys, 'ShiftRight');
+
+    return {
+      moveForward: forward,
+      moveBackward: backward,
+      moveLeft: left,
+      moveRight: right,
+      velocity: currentVelocity.current.clone(),
+      isMoving: currentVelocity.current.lengthSq() > 0.1,
+      isSprinting: sprint,
+    };
+  }
+
+  return { update, getState };
+}
