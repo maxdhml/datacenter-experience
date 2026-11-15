@@ -31,18 +31,24 @@ export function useMovement() {
   const keysRef = useKeyboard();
   const currentVelocity = useRef(new THREE.Vector3());
   const targetVelocity = useRef(new THREE.Vector3());
-  const direction = useRef(new THREE.Vector3());
 
   const currentArea = useGameStore((s) => s.currentArea);
   const setArea = useGameStore((s) => s.setArea);
   const gameState = useGameStore((s) => s.gameState);
+  const interactingWith = useGameStore((s) => s.interactingWith);
+  const targetPOI = useGameStore((s) => s.targetPOI);
 
   function update(
     delta: number,
     currentPos: THREE.Vector3,
     yaw: number,
   ): THREE.Vector3 {
-    if (gameState !== GameState.PLAYING && gameState !== GameState.MISSION) {
+    // Freeze movement during inspection, guided tour camera gliding, or menus
+    if (
+      (gameState !== GameState.PLAYING && gameState !== GameState.MISSION) ||
+      interactingWith ||
+      targetPOI
+    ) {
       currentVelocity.current.set(0, 0, 0);
       return currentPos;
     }
@@ -58,43 +64,58 @@ export function useMovement() {
     const right = isKey(keys, 'KeyD') || isKey(keys, 'ArrowRight');
     const sprint = isKey(keys, 'ShiftLeft') || isKey(keys, 'ShiftRight');
 
-    const activeSpeed = sprint ? SPRINT_SPEED : BASE_SPEED;
+    const moveForward = (forward ? 1 : 0) - (backward ? 1 : 0);
+    const moveStrafe = (right ? 1 : 0) - (left ? 1 : 0);
 
-    direction.current.set(0, 0, 0);
-    if (forward) direction.current.z -= 1;
-    if (backward) direction.current.z += 1;
-    if (left) direction.current.x -= 1;
-    if (right) direction.current.x += 1;
+    // Forward direction from camera yaw (looking along horizontal XZ plane)
+    const forwardX = -Math.sin(yaw);
+    const forwardZ = -Math.cos(yaw);
 
-    const isMoving = direction.current.lengthSq() > 0;
-    if (isMoving) {
-      direction.current.normalize();
+    // Right / Strafe direction perpendicular to forward
+    const rightX = Math.cos(yaw);
+    const rightZ = -Math.sin(yaw);
+
+    // Combine forward and strafe vectors
+    let moveX = moveForward * forwardX + moveStrafe * rightX;
+    let moveZ = moveForward * forwardZ + moveStrafe * rightZ;
+
+    const moveLen = Math.hypot(moveX, moveZ);
+    if (moveLen > 0.001) {
+      moveX /= moveLen;
+      moveZ /= moveLen;
     }
 
-    // Rotate input direction by yaw
-    const sin = Math.sin(yaw);
-    const cos = Math.cos(yaw);
-    const dx = direction.current.x * cos - direction.current.z * sin;
-    const dz = direction.current.x * sin + direction.current.z * cos;
+    const activeSpeed = sprint ? SPRINT_SPEED : BASE_SPEED;
+    targetVelocity.current.set(moveX * activeSpeed, 0, moveZ * activeSpeed);
 
-    targetVelocity.current.set(dx * activeSpeed, 0, dz * activeSpeed);
-
-    // Smooth physics damping (smooth acceleration & deceleration)
-    const lerpFactor = 1 - Math.exp(-14 * delta);
+    // Snappy responsive physics damping (immediate acceleration & clean stop without sliding)
+    const dampingSpeed = moveLen > 0 ? 18 : 26;
+    const lerpFactor = 1 - Math.exp(-dampingSpeed * delta);
     currentVelocity.current.lerp(targetVelocity.current, lerpFactor);
 
-    // Apply movement with boundary clamps
+    // Apply movement with smooth wall-sliding boundary clamps
+    let nextX = currentPos.x + currentVelocity.current.x * delta;
+    let nextZ = currentPos.z + currentVelocity.current.z * delta;
+
+    if (nextX < MIN_X) {
+      nextX = MIN_X;
+      currentVelocity.current.x = 0;
+    } else if (nextX > MAX_X) {
+      nextX = MAX_X;
+      currentVelocity.current.x = 0;
+    }
+
+    if (nextZ < MIN_Z) {
+      nextZ = MIN_Z;
+      currentVelocity.current.z = 0;
+    } else if (nextZ > MAX_Z) {
+      nextZ = MAX_Z;
+      currentVelocity.current.z = 0;
+    }
+
     const newPos = currentPos.clone();
-    newPos.x = THREE.MathUtils.clamp(
-      currentPos.x + currentVelocity.current.x * delta,
-      MIN_X,
-      MAX_X
-    );
-    newPos.z = THREE.MathUtils.clamp(
-      currentPos.z + currentVelocity.current.z * delta,
-      MIN_Z,
-      MAX_Z
-    );
+    newPos.x = nextX;
+    newPos.z = nextZ;
 
     // Auto-detect area by compact Z coordinate
     let detectedArea = Area.INTRODUCTION;

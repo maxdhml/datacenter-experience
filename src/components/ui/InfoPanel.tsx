@@ -114,9 +114,16 @@ export const InfoPanel: React.FC = () => {
       {/* Header with Step and Category */}
       <div className="info-panel__header">
         <div>
-          <span className="info-panel__badge">
-            Étape {guidedTourIndex + 1}/12 • {equipment.category}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+            <span className="info-panel__badge">
+              Étape {guidedTourIndex + 1}/12 • {equipment.category}
+            </span>
+            {equipment.keyMetric && (
+              <span className="info-panel__metric-badge" style={{ margin: 0 }}>
+                {equipment.keyMetric}
+              </span>
+            )}
+          </div>
           <h2 className="info-panel__title">{equipment.name}</h2>
         </div>
         <button
@@ -132,44 +139,19 @@ export const InfoPanel: React.FC = () => {
       </div>
 
       <div className="info-panel__body">
+        {/* Simple concise equipment description */}
+        {equipment.definition && (
+          <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.86rem', lineHeight: '1.45' }}>
+            {equipment.definition}
+          </p>
+        )}
+
         {/* Interactive Schematic Animation (100% Unique per equipment, zero redundancy) */}
         {schematicComponent && (
           <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '12px', border: '1px solid rgba(14,165,233,0.25)' }}>
             {schematicComponent}
           </div>
         )}
-
-        {/* 15-Minute Oral Cheat Sheet (Essentiel sans détails superflus) */}
-        <div className="info-panel__oral-box">
-          <div className="info-panel__oral-header">
-            <h3 className="info-panel__oral-title">
-              <span>🗣️</span> Ce qu&apos;il faut expliquer
-            </h3>
-            {equipment.keyMetric && (
-              <span className="info-panel__metric-badge">{equipment.keyMetric}</span>
-            )}
-          </div>
-
-          {/* Speech bubble: exact phrase to say aloud to the jury */}
-          {equipment.oralPitch && (
-            <div className="info-panel__pitch-box">
-              <span className="info-panel__pitch-tag">À dire au jury :</span>
-              <p className="info-panel__pitch-text">{equipment.oralPitch}</p>
-            </div>
-          )}
-
-          {/* 3 Key bullet points */}
-          {equipment.keyPoints && (
-            <div className="info-panel__keypoints">
-              {equipment.keyPoints.map((pt, i) => (
-                <div key={i} className="info-panel__keypoint">
-                  <span className="info-panel__keypoint-bullet">✓</span>
-                  <span>{pt}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Footer with Guided Tour Stepper Buttons */}
