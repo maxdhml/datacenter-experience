@@ -31,7 +31,7 @@ jobs:
           cache: 'npm'
 
       - name: Installation des dépendances
-        run: npm install
+        run: npm ci || npm install
 
       - name: Compilation du projet Vite
         run: npm run build
