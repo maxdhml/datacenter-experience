@@ -592,13 +592,13 @@ export default function DatacenterEnvironment() {
         z={22}
         areaNumber="ZONE 03"
         title="REFROIDISSEMENT & CLIMATISATION"
-        subtitle="Allée Froide 20°C • Climatiseurs Industriels • Gestion de la Chaleur"
+        subtitle="Cycle du Froid en Boucle Fermée • Allée Froide Confinée 20°C • Eau Glacée"
       />
       <AreaPortal
         z={44}
         areaNumber="ZONE 04"
         title="INFRASTRUCTURE ÉLECTRIQUE"
-        subtitle="Onduleurs & Batteries (Secours 0 ms) • Groupes Diesel (72h)"
+        subtitle="Chaîne de Secours en 3 Étages • Onduleurs 0 ms • Groupe Diesel 72h"
       />
       <AreaPortal
         z={66}
